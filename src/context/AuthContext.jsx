@@ -1,12 +1,13 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { auth, db } from '../lib/firebase';
+import { auth, db, googleProvider } from '../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import {
     onAuthStateChanged,
     signOut as firebaseSignOut,
     signInWithEmailAndPassword,
     createUserWithEmailAndPassword,
-    updateProfile
+    updateProfile,
+    signInWithPopup
 } from 'firebase/auth';
 
 const AuthContext = createContext(null);
@@ -64,6 +65,28 @@ export function AuthProvider({ children }) {
         }
     };
 
+    const signInWithGoogle = async () => {
+        try {
+            const res = await signInWithPopup(auth, googleProvider);
+            try {
+                await setDoc(doc(db, 'users', res.user.uid), {
+                    uid: res.user.uid,
+                    name: res.user.displayName,
+                    email: res.user.email,
+                    createdAt: new Date().toISOString()
+                }, { merge: true });
+            } catch (fsError) {
+                console.warn('Google sign-in: Firestore write failed:', fsError);
+            }
+            closeAuthModal();
+            return { success: true };
+        } catch (error) {
+            console.error('Google sign-in error:', error);
+            if (error.code === 'auth/popup-closed-by-user') return { error: null };
+            return { error: error.message.replace('Firebase: ', '').replace(/\(auth.*\)\./, '').trim() || error.message };
+        }
+    };
+
     const signOut = async () => {
         try {
             await firebaseSignOut(auth);
@@ -73,11 +96,12 @@ export function AuthProvider({ children }) {
     };
 
     return (
-        <AuthContext.Provider value={{ 
-            user, 
-            loading, 
-            signUpWithEmail, 
-            signInWithEmail, 
+        <AuthContext.Provider value={{
+            user,
+            loading,
+            signUpWithEmail,
+            signInWithEmail,
+            signInWithGoogle,
             signOut,
             isAuthModalOpen,
             openAuthModal,

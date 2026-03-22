@@ -14,7 +14,9 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-export const analytics = await isSupported().then(yes => yes ? getAnalytics(app) : null).catch(() => null);
+let analytics = null;
+isSupported().then(yes => { if (yes) analytics = getAnalytics(app); }).catch(() => {});
+export { analytics };
 export const db = getFirestore(app);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();

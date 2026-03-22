@@ -333,6 +333,8 @@ export function applyAction(currentState, action) {
             if (shouldSwapStrike(extraRuns)) {
                 swapStrike(state);
             }
+
+            checkAndHandleInningsComplete(state);
             break;
         }
 
@@ -357,6 +359,8 @@ export function applyAction(currentState, action) {
             if (shouldSwapStrike(extraRuns)) {
                 swapStrike(state);
             }
+
+            checkAndHandleInningsComplete(state);
             break;
         }
 
