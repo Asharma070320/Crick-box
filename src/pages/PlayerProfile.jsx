@@ -31,7 +31,7 @@ export default function PlayerProfile() {
         { label: 'Runs', value: player.runsScored || 0, color: 'text-primary-400', icon: '🏃' },
         { label: 'Avg', value: calculateAverage(player.runsScored || 0, player.innings || 0, player.notOuts || 0), color: 'text-amber-400', icon: '📈' },
         { label: 'SR', value: calculateStrikeRate(player.runsScored || 0, player.ballsFaced || 0), color: 'text-blue-400', icon: '⚡' },
-        { label: 'Wickets', value: player.wicketsTaken || 0, color: 'text-red-400', icon: '🎳' },
+        { label: 'Wickets', value: player.wicketsTaken || 0, color: 'text-red-400', icon: '🏏' },
         { label: 'Econ', value: calculateEconomy(player.runsConceded || 0, player.ballsBowled || 0), color: 'text-orange-400', icon: '📉' },
         { label: 'Best Score', value: player.bestScore || 0, color: 'text-amber-300', icon: '⭐' },
         { label: 'Best Wkts', value: player.bestWickets ? `${player.bestWickets}/${player.bestWicketsRuns || 0}` : '0', color: 'text-red-300', icon: '🔥' },

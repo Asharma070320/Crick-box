@@ -23,6 +23,7 @@ export const ACTION_TYPES = {
     WICKET: 'WICKET',
     NO_BALL: 'NO_BALL',
     WIDE: 'WIDE',
+    OVERTHROW: 'OVERTHROW',
     TOGGLE_POWERPLAY: 'TOGGLE_POWERPLAY',
 };
 
@@ -116,6 +117,7 @@ function addToBallLog(state, { type, runs, actualRuns, batsmanId, bowlerId, resu
 function checkAndHandleOverComplete(state) {
     if (isOverComplete(state)) {
         swapStrike(state); // swap at end of over
+        state.lastOverBowlerId = state.currentBowlerId; // lock out for next over
         state.needsBowlerChange = true;
         state.currentOverBalls = [];
         state.isPowerplay = false; // Reset powerplay at start of each over
@@ -228,6 +230,7 @@ export function applyAction(currentState, action) {
     switch (action.type) {
         case ACTION_TYPES.RUN: {
             const rawRuns = action.payload.runs;
+            // Team score: apply powerplay multiplier (×2 during powerplay)
             const actualRuns = applyPowerplayMultiplier(rawRuns, state.isPowerplay);
             const isFour = rawRuns === 4;
             const isSix = rawRuns === 6;
@@ -235,7 +238,8 @@ export function applyAction(currentState, action) {
             state.runs += actualRuns;
             state.balls += 1;
 
-            updateBattingStats(state, state.currentBatsmanId, actualRuns, isFour, isSix);
+            // Player score: always raw runs — powerplay multiplier is a team-only mechanic
+            updateBattingStats(state, state.currentBatsmanId, rawRuns, isFour, isSix);
             updateBowlingStats(state, state.currentBowlerId, actualRuns, false, false, false);
 
             const runDisplay = isSix ? '6' : isFour ? '4' : rawRuns === 0 ? '•' : String(rawRuns);
@@ -255,8 +259,10 @@ export function applyAction(currentState, action) {
         }
 
         case ACTION_TYPES.WICKET: {
+            // Wicket penalty: -5 only during powerplay, never outside it.
+            // Math.max(0) ensures team score can never go negative (e.g. 4 - 5 → 0, not -1).
             const powerplayDeduction = state.isPowerplay ? 5 : 0;
-            state.runs = state.runs - powerplayDeduction;
+            state.runs = Math.max(0, state.runs - powerplayDeduction);
             state.wickets += 1;
             state.balls += 1;
 
@@ -272,7 +278,9 @@ export function applyAction(currentState, action) {
             state.battingStats[outBatsmanId].dismissalType = action.payload.dismissalType || 'out';
             state.battingStats[outBatsmanId].balls += 1;
 
-            updateBowlingStats(state, state.currentBowlerId, -powerplayDeduction, true, false, false);
+            // Wicket penalty is a game rule deducted from the team — not actual runs conceded.
+            // Bowling stats record 0 runs for this delivery to avoid negative economy figures.
+            updateBowlingStats(state, state.currentBowlerId, 0, true, false, false);
 
             addBallToOver(state, 'W');
             addToBallLog(state, {
@@ -364,6 +372,44 @@ export function applyAction(currentState, action) {
             break;
         }
 
+        case ACTION_TYPES.OVERTHROW: {
+            const normalRuns = action.payload.normalRuns ?? 0;
+            const overthrowRuns = action.payload.overthrowRuns ?? 0;
+            const totalRuns = normalRuns + overthrowRuns;
+            const actualRuns = applyPowerplayMultiplier(totalRuns, state.isPowerplay);
+
+            state.runs += actualRuns;
+            state.balls += 1; // always a legal delivery
+
+            // Per cricket law: batsman credited only if at least 1 run was completed
+            // before the throw was made. If normalRuns === 0, overthrows are extras.
+            // Player always gets raw runs — powerplay multiplier is team-only.
+            const batsmanRuns = normalRuns >= 1 ? totalRuns : 0;
+            const isFour = batsmanRuns === 4;
+            const isSix = batsmanRuns === 6;
+            updateBattingStats(state, state.currentBatsmanId, batsmanRuns, isFour, isSix);
+            updateBowlingStats(state, state.currentBowlerId, actualRuns, false, false, false);
+
+            const otDisplay = `OT(${normalRuns}+${overthrowRuns})`;
+            addBallToOver(state, otDisplay);
+            addToBallLog(state, {
+                type: 'OVERTHROW',
+                runs: totalRuns,
+                actualRuns,
+                batsmanId: state.currentBatsmanId,
+                bowlerId: state.currentBowlerId,
+                result: otDisplay,
+            });
+
+            if (shouldSwapStrike(totalRuns)) {
+                swapStrike(state);
+            }
+
+            checkAndHandleOverComplete(state);
+            checkAndHandleInningsComplete(state);
+            break;
+        }
+
         case ACTION_TYPES.TOGGLE_POWERPLAY: {
             state.isPowerplay = !state.isPowerplay;
             break;
@@ -431,6 +477,7 @@ export function createInitialState({
         needsBowlerChange: false,
         needsNewBatsman: false,
         isLastMan: false,
+        lastOverBowlerId: null,
     };
 }
 
@@ -478,6 +525,7 @@ export function createSecondInningsState(prevState, {
         needsBowlerChange: false,
         needsNewBatsman: false,
         isLastMan: false,
+        lastOverBowlerId: null,
     };
 }
 
@@ -519,6 +567,7 @@ export function createSuperOverInningsState(prevState, {
         needsBowlerChange: false,
         needsNewBatsman: false,
         isLastMan: false,
+        lastOverBowlerId: null,
     };
 }
 

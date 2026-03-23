@@ -4,7 +4,7 @@ import Modal from '../common/Modal';
 
 export default function ScoringControls({ players, battingTeamPlayerIds }) {
     const {
-        matchState, scoreRun, scoreWicket, scoreNoBall, scoreWide,
+        matchState, scoreRun, scoreWicket, scoreNoBall, scoreWide, scoreOverthrow,
         togglePowerplay, undo, canUndo, updateCurrent,
     } = useMatch();
 
@@ -13,6 +13,8 @@ export default function ScoringControls({ players, battingTeamPlayerIds }) {
     const [batsmanModalOpen, setBatsmanModalOpen] = useState(false);
     const [powerplayAskOpen, setPowerplayAskOpen] = useState(false);
     const [noBallAskOpen, setNoBallAskOpen] = useState(false);
+    const [overthrowOpen, setOverthrowOpen] = useState(false);
+    const [otNormalRuns, setOtNormalRuns] = useState(null);
 
     const getPlayerName = (id) => {
         const p = players.find(pl => pl.id === id);
@@ -26,7 +28,7 @@ export default function ScoringControls({ players, battingTeamPlayerIds }) {
         return !stats || !stats.isOut;
     });
 
-    // Get available bowlers (from bowling team)
+    // Get all bowlers (from bowling team) — lastOverBowlerId is shown but disabled
     const bowlingTeamIds = matchState.battingTeam === 'A'
         ? matchState.teamBPlayerIds
         : matchState.teamAPlayerIds;
@@ -156,6 +158,16 @@ export default function ScoringControls({ players, battingTeamPlayerIds }) {
                 </button>
             </div>
 
+            {/* Overthrow button */}
+            <button
+                onClick={() => { setOtNormalRuns(null); setOverthrowOpen(true); }}
+                disabled={isMatchOver}
+                className="btn-score w-full py-3 bg-orange-900/30 border-orange-500/40 text-orange-300
+        hover:bg-orange-800/40 text-sm font-bold"
+            >
+                🏏 Overthrow
+            </button>
+
             {/* Wicket Modal */}
             <Modal
                 isOpen={wicketModalOpen}
@@ -241,14 +253,28 @@ export default function ScoringControls({ players, battingTeamPlayerIds }) {
                 <div className="space-y-2">
                     {availableBowlers.map(id => {
                         const stats = matchState.bowlingStats[id];
+                        const isLastOverBowler = id === matchState.lastOverBowlerId;
                         return (
                             <button
                                 key={id}
-                                onClick={() => handleBowlerSelect(id)}
-                                className="card w-full text-left hover:border-primary-500/50 transition-all"
+                                onClick={() => !isLastOverBowler && handleBowlerSelect(id)}
+                                disabled={isLastOverBowler}
+                                className={`card w-full text-left transition-all
+                                    ${isLastOverBowler
+                                        ? 'opacity-40 cursor-not-allowed border-surface-700'
+                                        : 'hover:border-primary-500/50 cursor-pointer'}`}
                             >
                                 <div className="flex items-center justify-between">
-                                    <span className="font-semibold text-white">{getPlayerName(id)}</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className={`font-semibold ${isLastOverBowler ? 'text-surface-500' : 'text-white'}`}>
+                                            {getPlayerName(id)}
+                                        </span>
+                                        {isLastOverBowler && (
+                                            <span className="text-xs text-amber-500/70 font-medium">
+                                                bowled last over
+                                            </span>
+                                        )}
+                                    </div>
                                     {stats && (
                                         <span className="text-xs text-surface-400">
                                             {stats.overs}ov - {stats.runs}r - {stats.wickets}w
@@ -292,6 +318,70 @@ export default function ScoringControls({ players, battingTeamPlayerIds }) {
                         </button>
                     </div>
                 </div>
+            </Modal>
+
+            {/* Overthrow Modal — step 1: normal runs, step 2: overthrow runs */}
+            <Modal
+                isOpen={overthrowOpen}
+                onClose={() => { setOverthrowOpen(false); setOtNormalRuns(null); }}
+                title={otNormalRuns === null ? 'Overthrow — Normal Runs' : 'Overthrow — Overthrow Runs'}
+            >
+                {otNormalRuns === null ? (
+                    <div>
+                        <p className="text-xs text-surface-400 text-center mb-3">
+                            Runs completed by batsmen <span className="text-white font-semibold">before</span> the throw
+                        </p>
+                        <div className="grid grid-cols-4 gap-2">
+                            {[0, 1, 2, 3].map(r => (
+                                <button
+                                    key={r}
+                                    onClick={() => setOtNormalRuns(r)}
+                                    className="btn-score py-4 bg-surface-800 border-surface-600 hover:border-orange-500 hover:text-orange-300"
+                                >
+                                    {r}
+                                </button>
+                            ))}
+                        </div>
+                        {otNormalRuns === 0 && (
+                            <p className="text-xs text-amber-400 text-center mt-2">
+                                No runs completed → overthrows will be counted as extras
+                            </p>
+                        )}
+                    </div>
+                ) : (
+                    <div>
+                        <p className="text-xs text-surface-400 text-center mb-1">
+                            Normal runs: <span className="text-white font-semibold">{otNormalRuns}</span>
+                        </p>
+                        <p className="text-xs text-surface-400 text-center mb-3">
+                            Additional runs from the overthrow
+                            {otNormalRuns === 0 && (
+                                <span className="text-amber-400"> (will be extras)</span>
+                            )}
+                        </p>
+                        <div className="grid grid-cols-4 gap-2">
+                            {[1, 2, 3, 4].map(r => (
+                                <button
+                                    key={r}
+                                    onClick={() => {
+                                        scoreOverthrow(otNormalRuns, r);
+                                        setOverthrowOpen(false);
+                                        setOtNormalRuns(null);
+                                    }}
+                                    className="btn-score py-4 bg-surface-800 border-surface-600 hover:border-orange-500 hover:text-orange-300"
+                                >
+                                    +{r}
+                                </button>
+                            ))}
+                        </div>
+                        <button
+                            onClick={() => setOtNormalRuns(null)}
+                            className="mt-3 w-full text-xs text-surface-400 hover:text-white transition-colors"
+                        >
+                            ← Back
+                        </button>
+                    </div>
+                )}
             </Modal>
 
             {/* No Ball Modal */}
