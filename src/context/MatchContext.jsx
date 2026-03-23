@@ -69,6 +69,13 @@ export function MatchProvider({ children, initialState }) {
         });
     }, []);
 
+    const scoreOverthrow = useCallback((normalRuns, overthrowRuns) => {
+        dispatch({
+            type: 'APPLY_ACTION',
+            action: { type: ACTION_TYPES.OVERTHROW, payload: { normalRuns, overthrowRuns } },
+        });
+    }, []);
+
     const togglePowerplay = useCallback(() => {
         dispatch({
             type: 'APPLY_ACTION',
@@ -92,6 +99,7 @@ export function MatchProvider({ children, initialState }) {
             scoreWicket,
             scoreNoBall,
             scoreWide,
+            scoreOverthrow,
             togglePowerplay,
             undo,
             updateCurrent,

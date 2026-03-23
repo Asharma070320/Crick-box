@@ -168,7 +168,7 @@ export default function Scoreboard({ players }) {
                 </div>
                 <div className="grid grid-cols-5 items-center py-2 px-1">
                     <div className="col-span-2 flex items-center gap-1.5 min-w-0">
-                        <span className="text-xs">🎳</span>
+                        <span className="text-xs">🏏</span>
                         <span className="font-semibold text-sm text-white truncate">
                             {getPlayerName(matchState.currentBowlerId)}
                         </span>
@@ -191,22 +191,35 @@ export default function Scoreboard({ players }) {
                     const ballLog = matchState.ballLog || [];
                     const currentOverIndex = Math.floor(matchState.balls / 6);
                     const currentOverBalls = matchState.currentOverBalls || [];
-                    
+
                     // Helper to render a single over row
-                    const renderOverRow = (overNum, balls, isActive = false) => {
+                    const renderOverRow = (overNum, balls, bowlerId, isActive = false) => {
                         if (balls.length === 0) return null;
-                        
+                        const bowlerName = bowlerId ? getPlayerName(bowlerId) : null;
+
                         return (
                             <div key={overNum} className={`card ${isActive ? '' : 'bg-surface-900/40 border-dashed border-surface-800 opacity-80'}`}>
-                                <div className="text-[10px] text-surface-500 font-medium mb-2 uppercase tracking-tight">
-                                    Over {overNum} {isActive && <span className="text-primary-400 ml-1 ml-1.5">• LIVE</span>}
+                                {/* Over header: bowler name + over number */}
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                        {isActive && (
+                                            <span className="w-1.5 h-1.5 rounded-full bg-primary-400 animate-pulse-fast flex-shrink-0" />
+                                        )}
+                                        <span className={`text-[11px] font-semibold truncate ${isActive ? 'text-white' : 'text-surface-400'}`}>
+                                            {bowlerName ?? 'Unknown'}
+                                        </span>
+                                    </div>
+                                    <span className={`text-[10px] font-medium whitespace-nowrap ml-2 ${isActive ? 'text-primary-400' : 'text-surface-500'}`}>
+                                        Over {overNum}{isActive ? ' • LIVE' : ''}
+                                    </span>
                                 </div>
+
                                 <div className="flex gap-2 flex-wrap">
                                     {balls.map((ball, i) => {
-                                        let bgColor = isActive 
+                                        let bgColor = isActive
                                             ? 'bg-surface-700 border-surface-600 text-surface-300'
                                             : 'bg-surface-800 border-surface-700 text-surface-400';
-                                            
+
                                         if (ball === 'W') bgColor = isActive ? 'bg-red-500/20 border-red-500/50 text-red-400' : 'bg-red-500/10 border-red-500/30 text-red-500/70';
                                         else if (ball === '4') bgColor = isActive ? 'bg-blue-500/20 border-blue-500/50 text-blue-400' : 'bg-blue-500/10 border-blue-500/30 text-blue-500/70';
                                         else if (ball === '6') bgColor = isActive ? 'bg-primary-500/20 border-primary-500/50 text-primary-400' : 'bg-primary-500/10 border-primary-500/30 text-primary-500/70';
@@ -225,23 +238,30 @@ export default function Scoreboard({ players }) {
                         );
                     };
 
-                    // Get completed overs from ballLog
+                    // Build completed overs: balls array + first bowlerId seen in that over
                     const completedOversMap = {};
-                    ballLog.filter(b => b.innings === matchState.innings && b.over < currentOverIndex)
-                           .forEach(b => {
-                               if (!completedOversMap[b.over]) completedOversMap[b.over] = [];
-                               completedOversMap[b.over].push(b.result);
-                           });
-                    
+                    const completedOverBowler = {};
+                    ballLog
+                        .filter(b => b.innings === matchState.innings && b.over < currentOverIndex)
+                        .forEach(b => {
+                            if (!completedOversMap[b.over]) {
+                                completedOversMap[b.over] = [];
+                                completedOverBowler[b.over] = b.bowlerId; // first ball = over's bowler
+                            }
+                            completedOversMap[b.over].push(b.result);
+                        });
+
                     const completedOverIndices = Object.keys(completedOversMap).map(Number).sort((a, b) => b - a);
 
                     return (
                         <>
                             {/* Current Over */}
-                            {renderOverRow(currentOverIndex + 1, currentOverBalls, true)}
-                            
+                            {renderOverRow(currentOverIndex + 1, currentOverBalls, matchState.currentBowlerId, true)}
+
                             {/* Previous Overs in descending order */}
-                            {completedOverIndices.map(overIdx => renderOverRow(overIdx + 1, completedOversMap[overIdx]))}
+                            {completedOverIndices.map(overIdx =>
+                                renderOverRow(overIdx + 1, completedOversMap[overIdx], completedOverBowler[overIdx])
+                            )}
                         </>
                     );
                 })()}
