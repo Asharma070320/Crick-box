@@ -108,7 +108,7 @@ export default function Rankings() {
         if (bowlerRankings.length === 0) {
             return (
                 <div className="text-center py-12">
-                    <div className="text-5xl mb-3">🎳</div>
+                    <div className="text-5xl mb-3">🏏</div>
                     <h3 className="text-lg font-bold text-surface-300 mb-1">No bowling data yet</h3>
                     <p className="text-sm text-surface-500">Play some matches to see rankings</p>
                 </div>
@@ -183,7 +183,7 @@ export default function Rankings() {
                             : 'text-surface-400 hover:text-white'
                     }`}
                 >
-                    🎳 Bowlers
+                    🏏 Bowlers
                 </button>
             </div>
 
